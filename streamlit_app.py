@@ -169,7 +169,7 @@ REGLAS ABSOLUTAS DEL GUION: [cite: 23, 24, 25]
 
 if api_key:
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
     titulo_usuario = st.text_input("Título do Vídeo", placeholder="Digite o título aqui...")
 
