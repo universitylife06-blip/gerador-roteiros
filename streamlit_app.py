@@ -40,7 +40,7 @@ if st.button("🚀 Iniciar Automação"):
         # Configura a API com a chave fornecida
         genai.configure(api_key=api_key)
         # Usando o modelo flash por ser mais rápido e ideal para tarefas em lote
-        model = genai.GenerativeModel('gemini-1.5-flash') 
+        model = genai.GenerativeModel('gemini-2.5-flash') 
 
         st.success("Iniciando a produção dos roteiros...")
 
