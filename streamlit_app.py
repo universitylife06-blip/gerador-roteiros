@@ -1,101 +1,77 @@
 import streamlit as st
 import google.generativeai as genai
+import time
 
 # Configuração da página
-st.set_page_config(page_title="Gerador Multi-Idioma - Lecciones del Abismo", layout="centered")
+st.set_page_config(page_title="Gerador de Roteiros Multi-idiomas", layout="wide")
+st.title("🎬 Automação de Roteiros para o YouTube")
 
-st.title("🎬 Esteira de Roteiros Multi-Idioma")
-st.markdown("Gere roteiros profissionais em 10 idiomas seguindo a arquitetura de 26 parágrafos.")
+# Barra lateral para a chave da API
+st.sidebar.header("Configurações")
+api_key = st.sidebar.text_input("Insira sua API Key do Gemini:", type="password")
+st.sidebar.markdown("*(Você pode gerar uma chave gratuita no Google AI Studio)*")
 
-# Configuração da API Key na barra lateral
-api_key = st.sidebar.text_input("Gemini API Key", type="password")
+# Entrada do título original
+titulo_original = st.text_input("Título original do vídeo (em português):")
 
-# Seleção de Idioma
-idiomas_dict = {
-    "Alemão": "German",
-    "Croata": "Croatian",
-    "Espanhol": "Spanish",
-    "Francês": "French",
-    "Holandês": "Dutch",
-    "Inglês": "English",
-    "Italiano": "Italian",
-    "Polonês": "Polish",
-    "Romeno": "Romanian",
-    "Russo": "Russian"
-}
-idioma_selecionado = st.selectbox("Selecione o idioma do roteiro final:", list(idiomas_dict.keys()))
+# Áreas para você colar as suas diretrizes de prompt
+st.markdown("### Seus Prompts de Geração")
+st.info("Personalize as instruções abaixo. O aplicativo vai substituir automaticamente as tags `{titulo}`, `{premissa}` e `{idioma}` durante a execução.")
 
-# Inicializa o estado para não perder o roteiro ao clicar em baixar
-if 'roteiro_final' not in st.session_state:
-    st.session_state.roteiro_final = None
+prompt_premissa_base = st.text_area(
+    "Diretrizes do Prompt de Premissa:",
+    "Atue como um produtor de conteúdo experiente. Com base no título '{titulo}', crie uma premissa intrigante e um resumo de 1 parágrafo para um vídeo do YouTube. Escreva o resultado em {idioma}."
+)
 
-# --- PROMPT 1: PREMISSA (ÍNTEGRA) ---
-PROMPT_PREMISSA_BASE = """
-# PROMPT — GENERADOR DE PREMISAS PARA GUIONES
-## Canal: Lecciones del Abismo
-## Filosofía: "Las personas que más perdieron son las que más saben. Aquí extraemos esa sabiduría para tu vida."
-## IDENTIDAD Y MISIÓN
-Eres un arquitecto de narrativas especializado en guiones de sabiduría extraída de experiencias extremas para YouTube en español. Tu trabajo es recibir un título y transformarlo en una premisa detallada que servirá como plano completo para el guionista.
-Este canal NO es un canal de confesiones de arrepentimiento. Es un canal de transformación y utilidad. La prisión no es el tema — es la escuela. El narrador no busca lástima — entrega sabiduría ganada al precio más alto posible.
-REGLAS: DO NOT break character. DO NOT describe what you’re doing. DO NOT generate a script — generate the premise only.
-"""
+prompt_roteiro_base = st.text_area(
+    "Diretrizes do Prompt de Roteiro:",
+    "Atue como um roteirista de YouTube de alta retenção. Usando a seguinte premissa: '{premissa}', crie um roteiro completo (Introdução, Desenvolvimento e Conclusão). Escreva todo o roteiro em {idioma}."
+)
 
-# --- PROMPT 2: ROTEIRO (ÍNTEGRA) ---
-PROMPT_ROTEIRO_BASE = """
-Eres el guionista principal del canal Lecciones del Abismo. Tu trabajo es escribir guiones en primera persona narrados por un hombre mayor (60–80 años) que vivió décadas dentro de una prisión y ahora habla directamente a la cámara — no para buscar lástima, sino para entregar sabiduría ganada al precio más alto que existe.
+idiomas_alvo = [
+    "Alemão", "Croata", "Espanhol", "Francês", "Holandês", 
+    "Inglês", "Italiano", "Polonês", "Romeno", "Russo"
+]
 
-TU TAREA: tomar la premisa y convertirla en un guion completo de 26 párrafos, cada uno de 130 a 150 palabras.
+if st.button("🚀 Iniciar Automação"):
+    if not api_key or not titulo_original:
+        st.warning("Por favor, preencha a API Key e o Título original para começar.")
+    else:
+        # Configura a API com a chave fornecida
+        genai.configure(api_key=api_key)
+        # Usando o modelo flash por ser mais rápido e ideal para tarefas em lote
+        model = genai.GenerativeModel('gemini-1.5-flash') 
 
-REGLA DE FORMATO ABSOLUTA:
-- Debes escribir exactamente 26 párrafos.
-- Cada párrafo debe tener entre 130 y 150 palabras.
-- Sigue esta cuenta de forma rigurosa, párrafo por párrafo.
-- Entrega únicamente los 26 párrafos.
-- Sin títulos de sección, numeración, explicaciones o comentarios.
-- El guion fluye como un bloque narrativo continuo y cohesivo.
+        st.success("Iniciando a produção dos roteiros...")
 
-REGLAS DE CONDUCTA:
-- DO NOT break character.
-- DO NOT generate a summary — generate the script only.
-- DO NOT include any production notes.
-"""
+        # Loop passando por todos os 10 idiomas
+        for idioma in idiomas_alvo:
+            st.markdown(f"## 🌍 Idioma: {idioma}")
+            
+            with st.spinner(f"Processando {idioma}..."):
+                try:
+                    # Passo 1: Traduzir o título
+                    prompt_traducao = f"Traduza o seguinte título de vídeo para {idioma}. Responda APENAS com a tradução, sem aspas: {titulo_original}"
+                    titulo_traduzido = model.generate_content(prompt_traducao).text.strip()
+                    st.write(f"**Título:** {titulo_traduzido}")
+                    time.sleep(1) # Pequena pausa para evitar sobrecarga na API
 
-if api_key:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    # Passo 2: Gerar a Premissa
+                    prompt_premissa_final = prompt_premissa_base.format(titulo=titulo_traduzido, idioma=idioma)
+                    premissa = model.generate_content(prompt_premissa_final).text.strip()
+                    
+                    with st.expander("Ver Premissa Gerada"):
+                        st.write(premissa)
+                    time.sleep(1)
 
-    titulo_usuario = st.text_input("Título do Vídeo", placeholder="Digite o título aqui...")
-
-    if st.button("🚀 Gerar Roteiro Completo"):
-        if not titulo_usuario:
-            st.warning("Por favor, insira um título.")
-        else:
-            try:
-                # FASE 1: PREMISSA
-                with st.status("Fase 1: Gerando Premissa...") as s1:
-                    res_p1 = model.generate_content(f"{PROMPT_PREMISSA_BASE}\n\nINPUT: {titulo_usuario}")
-                    premissa_final = res_p1.text
-                    s1.update(label="Premissa concluída!", state="complete")
-
-                # FASE 2: ROTEIRO (COM TRADUÇÃO)
-                target_lang = idiomas_dict[idioma_selecionado]
-                with st.status(f"Fase 2: Escrevendo Roteiro em {idioma_selecionado}...") as s2:
-                    instrucao_idioma = f"\n\nCRITICAL: Write the entire script in {target_lang}."
-                    res_p2 = model.generate_content(f"{PROMPT_ROTEIRO_BASE}{instrucao_idioma}\n\nPREMISSA:\n{premissa_final}")
-                    st.session_state.roteiro_final = res_p2.text
-                    s2.update(label=f"Roteiro em {idioma_selecionado} finalizado!", state="complete")
-
-                st.success("Processo concluído!")
-
-            except Exception as e:
-                st.error(f"Erro na API: {e}")
-
-# Exibição e Download
-if st.session_state.roteiro_final:
-    nome_arq = f"{idioma_selecionado.upper()} - {titulo_usuario[:50]}.txt"
-    st.download_button("📥 Baixar Roteiro .txt", st.session_state.roteiro_final, file_name=nome_arq)
-    
-    with st.expander("Visualizar Texto"):
-        st.text_area("Roteiro Final", value=st.session_state.roteiro_final, height=400)
-else:
-    st.info("Selecione o idioma, insira o título e clique no botão para começar.")
+                    # Passo 3: Gerar o Roteiro
+                    prompt_roteiro_final = prompt_roteiro_base.format(premissa=premissa, idioma=idioma)
+                    roteiro = model.generate_content(prompt_roteiro_final).text.strip()
+                    
+                    with st.expander("Ver Roteiro Completo", expanded=False):
+                        st.write(roteiro)
+                    
+                except Exception as e:
+                    st.error(f"Ocorreu um erro ao processar o {idioma}: {e}")
+            
+            st.divider()
